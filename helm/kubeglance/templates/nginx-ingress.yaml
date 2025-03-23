@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubeglance-ingress
+  namespace: kubeglance
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  #- host: <your-app-domain>  # Replace with your domain name or localhost
+  -  http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kubeglance-frontend
+            port:
+              number: 80
+
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: kubeglance-backend
+            port:
+              number: 3000

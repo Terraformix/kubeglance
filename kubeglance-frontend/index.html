@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kubeglance - Kubernetes Dashboard</title>
+    <meta name="description" content="Modern Kubernetes Dashboard" />
+    <meta name="author" content="Kube Glance" />
+    <meta property="og:image" content="/og-image.png" />
+
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Configure Tailwind with dark mode -->
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'background': '#0f172a',
+              'foreground': '#f8fafc',
+              'primary': '#6366f1',
+              'primary-hover': '#4f46e5',
+              'card': '#1e293b',
+              'card-hover': '#334155',
+              'success': '#22c55e',
+              'warning': '#eab308',
+              'danger': '#ef4444',
+              'border': '#334155'
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    
+    <!-- Custom styles -->
+    <style>
+      body {
+        @apply bg-background text-foreground;
+      }
+      
+      .fade-enter-active, .fade-leave-active {
+        transition: opacity 0.3s ease;
+      }
+      .fade-enter-from, .fade-leave-to {
+        opacity: 0;
+      }
+      
+      .slide-enter-active, .slide-leave-active {
+        transition: transform 0.3s ease;
+      }
+      .slide-enter-from, .slide-leave-to {
+        transform: translateX(-20px);
+        opacity: 0;
+      }
+    </style>
+  </head>
+
+  <body class="dark">
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

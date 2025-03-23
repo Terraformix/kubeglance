@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubeglance-backend
+  namespace: kubeglance
+  labels:
+    {{- include "kubeglance.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kubeglance.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kubeglance.backend.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: kubeglance-backend
+        image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+        imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+        resources:
+          {{- toYaml .Values.backend.resources | nindent 10 }}
+        ports:
+        - containerPort: 3000
+        env:
+        {{- range $key, $value := .Values.backend.env }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        volumeMounts:
+        - name: logs-volume
+          mountPath: /app/logs
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.backend.probes.readiness.path }}
+            port: 3000
+          initialDelaySeconds: {{ .Values.backend.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.backend.probes.readiness.periodSeconds }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.backend.probes.liveness.path }}
+            port: 3000
+          initialDelaySeconds: {{ .Values.backend.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.backend.probes.liveness.periodSeconds }}
+      volumes:
+      - name: logs-volume
+        emptyDir: {}

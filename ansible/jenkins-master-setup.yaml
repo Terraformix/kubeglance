@@ -1,0 +1,114 @@
+- name: Jenkins Master Node Setup
+  hosts: [jenkins_master]
+  become: true
+  vars:
+    jenkins_user: "jenkins"
+  tasks:
+
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+      register: update_result
+      ignore_errors: yes
+
+    - name: Download Jenkins repository key
+      ansible.builtin.get_url:
+        url: https://pkg.jenkins.io/debian/jenkins.io.key
+        dest: /usr/share/keyrings/jenkins-keyring.asc
+        mode: '0644'
+
+    - name: Add Jenkins repository
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable/ binary/"
+        state: present
+        filename: "jenkins"
+
+    - name: Update apt cache after adding Jenkins repo
+      apt:
+        update_cache: yes
+
+    - name: Install Java
+      apt:
+        name: openjdk-17-jdk
+        state: present
+      register: java_install
+      notify:
+        - log_installation_status
+
+    - name: Install Jenkins
+      apt:
+        name: jenkins
+        state: present
+      register: jenkins_install
+      notify:
+        - log_installation_status
+        - restart_jenkins
+
+    - name: Ensure Jenkins is enabled and started
+      service:
+        name: jenkins
+        state: started
+        enabled: yes
+      register: jenkins_service_status
+      notify:
+        - log_installation_status
+
+    - name: Wait for Jenkins to start (sleep 30 seconds)
+      pause:
+        seconds: 30
+
+    - name: Get Jenkins initial admin password
+      command: cat /var/lib/jenkins/secrets/initialAdminPassword
+      register: jenkins_admin_password
+      changed_when: false
+
+    - name: Print Jenkins initial admin password
+      debug:
+        msg: "Jenkins initial admin password: {{ jenkins_admin_password.stdout }}"
+
+    - name: Ensure .ssh directory exists
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/.ssh  
+        state: directory
+        mode: '0700' 
+
+    - name: Generate an SSH key pair on the remote VM
+      ansible.builtin.command:
+        cmd: ssh-keygen -t rsa -b 4096 -f /home/{{ ansible_user }}/.ssh/id_rsa -N ""
+        creates: /home/{{ ansible_user }}/.ssh/id_rsa.pub
+
+    - name: Set correct permissions for private key
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/.ssh/id_rsa 
+        mode: '0600' 
+
+    - name: Display the generated SSH public key
+      ansible.builtin.command: cat /home/{{ ansible_user }}/.ssh/id_rsa.pub
+      register: ssh_pubkey
+
+    - name: Print SSH Public Key
+      ansible.builtin.debug:
+        msg: "{{ ssh_pubkey.stdout }}"
+
+    - name: Copy public key to all Jenkins slaves
+      ansible.builtin.authorized_key:
+        user: "{{ jenkins_user }}"
+        state: present
+        key: "{{ ssh_pubkey.stdout }}"
+        path: /home/{{ jenkins_user }}/.ssh/authorized_keys
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['jenkins_slaves'] }}"
+
+  handlers:
+    - name: log_installation_status
+      debug:
+        msg: "{{ item }} installation completed successfully."
+      loop:
+        - "Java"
+        - "Jenkins"
+
+    - name: restart_jenkins
+      service:
+        name: jenkins
+        state: restarted

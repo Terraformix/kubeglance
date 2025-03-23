@@ -1,0 +1,187 @@
+- name: Jenkins Slave Node Setup
+  hosts: [jenkins_slaves]
+  become: true
+  vars:
+    jenkins_user: "jenkins"
+  tasks:
+
+    - name: Add Jenkins user
+      user:
+        name: jenkins
+        shell: /bin/bash
+        home: /home/jenkins
+        create_home: yes
+      register: jenkins_user_created
+
+    - name: Ensure .ssh directory exists for Jenkins user
+      ansible.builtin.file:
+        path: /home/jenkins/.ssh
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: '0700'
+
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+      register: update_result
+      ignore_errors: yes
+
+    - name: Install Java (openjdk-17-jdk)
+      apt:
+        name: openjdk-17-jdk
+        state: present
+      register: java_install
+      notify:
+        - log_installation_status
+
+    - name: Install required packages for Docker
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - software-properties-common
+        state: present
+
+    - name: Create keyring directory if it doesn't exist
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add Docker GPG key
+      ansible.builtin.shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null
+      args:
+        creates: /etc/apt/keyrings/docker.asc
+
+    - name: Add Docker repository (with Signed-By for Ubuntu 24.04+)
+      ansible.builtin.shell: |
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
+      args:
+        executable: /bin/bash
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Verify Docker installation
+      command: docker --version
+      register: docker_version
+      changed_when: false
+
+    - name: Show Docker version
+      debug:
+        msg: "Docker version: {{ docker_version.stdout }}"
+
+    - name: Add current user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+      when: ansible_user is defined
+
+    - name: Add Jenkins user to Docker group
+      user:
+        name: "{{ jenkins_user }}"
+        groups: docker
+        append: yes
+      when: jenkins_user_created is succeeded
+
+    - name: Start and enable Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Install kubectl
+      shell: |
+        KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+        curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
+        chmod +x /usr/local/bin/kubectl
+      register: kubectl_install
+      notify:
+        - log_installation_status
+
+    - name: Ensure required dependencies for Helm are installed
+      apt:
+        name:
+          - apt-transport-https
+          - curl
+          - gnupg
+          - ca-certificates
+        state: present
+        update_cache: yes
+
+    - name: Download the Helm script
+      get_url:
+        url: https://get.helm.sh/helm-v3.9.0-linux-amd64.tar.gz
+        dest: /tmp/helm-v3.9.0-linux-amd64.tar.gz
+
+    - name: Extract Helm tarball
+      unarchive:
+        src: /tmp/helm-v3.9.0-linux-amd64.tar.gz
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Move Helm binary to /usr/local/bin
+      command:
+        cmd: mv /tmp/linux-amd64/helm /usr/local/bin/helm
+
+
+    # # Step 1: Add Google's Cloud SDK GPG key
+    # - name: Add Google Cloud SDK GPG key
+    #   ansible.builtin.get_url:
+    #     url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    #     dest: /usr/share/keyrings/cloud.google.gpg
+    #     mode: '0644'
+
+    # # Step 2: Add Google Cloud SDK repository
+    # - name: Add Google Cloud SDK repository
+    #   apt_repository:
+    #     repo: "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main"
+    #     state: present
+    #     filename: "google-cloud-sdk"
+
+    # # Step 3: Update apt cache
+    # - name: Update apt cache
+    #   apt:
+    #     update_cache: yes
+
+    # # Step 4: Install Google Cloud SDK
+    # - name: Install Google Cloud SDK
+    #   apt:
+    #     name: google-cloud-sdk
+    #     state: present
+
+    # # Step 5: Verify Google Cloud SDK installation
+    # - name: Verify Google Cloud SDK installation
+    #   command: gcloud version
+    #   register: gcloud_version
+
+    # - name: Print Google Cloud SDK version
+    #   debug:
+    #     msg: "Google Cloud SDK Version: {{ gcloud_version.stdout }}"
+
+  handlers:
+    - name: log_installation_status
+      debug:
+        msg: "{{ item }} installed successfully"
+      loop:
+        - "Java"
+        - "Docker"
+        - "kubectl"
+        - "Helm"
+        #- "Google Cloud SDK"

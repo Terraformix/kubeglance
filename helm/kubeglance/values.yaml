@@ -1,0 +1,46 @@
+replicaCount: 1
+
+frontend:
+  image:
+    repository: xxx/kubeglance-frontend
+    tag: "178"
+    pullPolicy: Always
+  service:
+    type: NodePort
+    port: 80
+  resources:
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+    requests:
+      memory: "128Mi"
+      cpu: "250m"
+
+backend:
+  image:
+    repository: xxx/kubeglance-backend
+    tag: "178"
+    pullPolicy: Always
+  service:
+    type: NodePort
+    port: 3000
+  resources:
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+    requests:
+      memory: "128Mi"
+      cpu: "250m"
+  env:
+    NODE_ENV: "production"
+    LOG_DIR: "/app/logs"
+    LOG_FILE: "/app/logs/kubeglance.log"
+  probes:
+    readiness:
+      path: /healthz
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    liveness:
+      path: /healthz
+      initialDelaySeconds: 10
+      periodSeconds: 20

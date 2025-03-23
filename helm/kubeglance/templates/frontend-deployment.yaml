@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubeglance-frontend
+  namespace: kubeglance
+  labels:
+    {{- include "kubeglance.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kubeglance.frontend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kubeglance.frontend.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: kubeglance-frontend
+        image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+        imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+        resources:
+          {{- toYaml .Values.frontend.resources | nindent 10 }}
+        ports:
+        - containerPort: 80
+        env:
+        {{- range $key, $value := .Values.frontend.env }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
