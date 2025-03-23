@@ -1,1 +1,2 @@
-https://github.com/Terraformix/kubeglance/blob/main/kubeglance.gif
+
+![Demo](https://github.com/Terraformix/kubeglance/blob/main/kubeglance.gif)
